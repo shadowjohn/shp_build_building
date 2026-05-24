@@ -19,8 +19,17 @@ export function createGlb({ meshes, materials }) {
   const positions = meshes.flatMap((mesh) => mesh.positions);
   let vertexOffset = 0;
   const indices = [];
+  const primitives = [];
   for (const mesh of meshes) {
+    const indexOffset = indices.length;
     for (const index of mesh.indices) indices.push(index + vertexOffset);
+    primitives.push({
+      attributes: { POSITION: 0 },
+      indices: primitives.length + 1,
+      material: mesh.materialIndex
+    });
+    mesh.indexByteOffset = indexOffset * 4;
+    mesh.indexCount = mesh.indices.length;
     vertexOffset += mesh.positions.length / 3;
   }
 
@@ -38,13 +47,19 @@ export function createGlb({ meshes, materials }) {
     ],
     accessors: [
       { bufferView: 0, componentType: 5126, count: positions.length / 3, type: "VEC3", min: mins, max: maxs },
-      { bufferView: 1, componentType: 5125, count: indices.length, type: "SCALAR" }
+      ...meshes.map((mesh) => ({
+        bufferView: 1,
+        byteOffset: mesh.indexByteOffset,
+        componentType: 5125,
+        count: mesh.indexCount,
+        type: "SCALAR"
+      }))
     ],
     materials: materials.map((material) => ({
       name: material.name,
       pbrMetallicRoughness: { baseColorFactor: material.baseColorFactor, metallicFactor: 0, roughnessFactor: 0.85 }
     })),
-    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1, material: 0 }] }],
+    meshes: [{ primitives }],
     nodes: [{ mesh: 0 }],
     scenes: [{ nodes: [0] }],
     scene: 0

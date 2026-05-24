@@ -7,8 +7,16 @@ export function twd97ToLonLat(x, y) {
   return proj4("EPSG:3826", "EPSG:4326", [Number(x), Number(y)]);
 }
 
+export function lonLatToTwd97(lon, lat) {
+  return proj4("EPSG:4326", "EPSG:3826", [Number(lon), Number(lat)]);
+}
+
 export function ringToLonLat(ring) {
   return ring.map(([x, y]) => twd97ToLonLat(x, y));
+}
+
+export function ringToTwd97(ring) {
+  return ring.map(([lon, lat]) => lonLatToTwd97(lon, lat));
 }
 
 export function lonLatHeightToEcef(lonDeg, latDeg, height = 0) {

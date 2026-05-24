@@ -1,12 +1,24 @@
 import Database from "better-sqlite3";
 import { computeCentroid } from "./geometry.js";
-import { twd97ToLonLat } from "./projection.js";
+import { ringToTwd97, twd97ToLonLat } from "./projection.js";
 import { parseBuildingWkt } from "./wkt.js";
 
 function insideBbox(lonLat, bbox) {
   if (!bbox) return true;
   const [lon, lat] = lonLat;
   return lon >= bbox[0] && lat >= bbox[1] && lon <= bbox[2] && lat <= bbox[3];
+}
+
+function looksLikeLonLat(point) {
+  const [x, y] = point;
+  return x >= 100 && x <= 130 && y >= 20 && y <= 30;
+}
+
+function normalizePolygons(polygons) {
+  const first = polygons[0]?.[0]?.[0];
+  if (!first) return polygons;
+  if (!looksLikeLonLat(first)) return polygons;
+  return polygons.map((polygon) => [ringToTwd97(polygon[0]), ...polygon.slice(1).map((ring) => ringToTwd97(ring))]);
 }
 
 export function* readBuildings(options) {
@@ -17,7 +29,7 @@ export function* readBuildings(options) {
 
   try {
     for (const row of db.prepare(sql).iterate()) {
-      const polygons = parseBuildingWkt(row.GEOMETRY_WKT);
+      const polygons = normalizePolygons(parseBuildingWkt(row.GEOMETRY_WKT));
       if (!polygons.length || !polygons[0].length || polygons[0][0].length < 3) continue;
 
       const centroid = computeCentroid(polygons[0][0]);

@@ -33,7 +33,7 @@ export function writeTileset({ outputRoot, sourceSummary, tiles }) {
 
   const rootRegion = unionRegion(tiles);
   const tileset = {
-    asset: { version: "1.0", generator: "shp_build_building" },
+    asset: { version: "1.0", generator: "shp_build_building", gltfUpAxis: "Z" },
     geometricError: 500,
     root: {
       boundingVolume: { region: toRegionRadians(rootRegion) },
