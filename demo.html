@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Easymap Taichung Building 3D Tiles Demo</title>
+  <link rel="stylesheet" href="/viewer/css/style.css">
+  <script src="http://www.focusit.com.tw/easymap/easymap/easymap.js"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <strong>Taichung Buildings</strong>
+    <label>
+      Profile
+      <select id="profile">
+        <option value="procedural">procedural</option>
+        <option value="white">white</option>
+        <option value="height-debug">height-debug</option>
+      </select>
+    </label>
+    <div id="status">Loading...</div>
+    <button id="flyHome" type="button">Fly Taichung</button>
+  </div>
+  <script src="/viewer/js/app.js"></script>
+</body>
+</html>
