@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Easymap Taichung Building 3D Tiles Demo</title>
+  <link rel="stylesheet" href="/viewer/css/style.css">
+  <script src="https://3wa.tw/inc/javascript/easymap7115/easymap.js"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <strong>Taichung Buildings</strong>
+    <label>
+      Profile
+      <select id="profile">
+        <option value="procedural-terrain-edges">procedural terrain edges</option>
+        <option value="procedural-height0-edges">procedural height0 edges</option>
+        <option value="textured-terrain-edges">textured terrain edges</option>
+        <option value="textured-height0-edges">textured height0 edges</option>
+        <option value="white-terrain-edges">white terrain edges</option>
+        <option value="white-height0-edges">white height0 edges</option>
+        <option value="height-debug-terrain-edges">height-debug terrain edges</option>
+      </select>
+    </label>
+    <label>
+      Base map
+      <select id="baseMap">
+        <option value="nlscphoto">國土測繪航照</option>
+        <option value="nlscmap">國土測繪地圖</option>
+        <option value="osm">OpenStreetMap</option>
+      </select>
+    </label>
+    <label class="check-row">
+      <input id="buildingsVisible" type="checkbox" checked>
+      Buildings
+    </label>
+    <div id="status">Loading...</div>
+    <button id="flyHome" type="button">Fly Taichung</button>
+  </div>
+  <script src="/viewer/js/app.js"></script>
+</body>
+</html>
