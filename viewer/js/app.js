@@ -38,7 +38,7 @@
     activeLayer = new dg3D("3dtiles", tilesetUrl(), op);
     map.addItem(activeLayer);
     if (typeof activeLayer.setOpacity === "function") {
-      activeLayer.setOpacity(0.96);
+      activeLayer.setOpacity(profileSelect.value === "white" ? 0.55 : 0.72);
     }
     setStatus(`Tileset loading: ${county}/${profileSelect.value}`);
   }
