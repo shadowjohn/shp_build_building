@@ -2,11 +2,14 @@
 
 ## Goal
 
-Build a small offline batch tool under `D:\mytools\shp_build_building` that converts Taichung building footprint data into a Cesium-compatible 3D Tiles tileset.
+Build a small offline batch tool under `D:\mytools\shp_build_building` that converts county-separated building SHP/SQLite data into Cesium-compatible 3D Tiles tilesets.
 
 The MVP prioritizes:
 
-- full-city offline output for Taichung
+- a simple `input/` folder where county folders can be dropped in
+- full-city offline output, starting with Taichung
+- per-county output under `output/<county>/<profile>/`
+- multiple output profiles from the same source geometry
 - visible building height differences
 - city-like procedural materials
 - repeatable batch runs with logs and manifests
@@ -22,6 +25,31 @@ Primary Taichung building source:
 - `Z:\easymap_server\uploads\8\8.shp`
 - `Z:\easymap_server\uploads\8\8.dbf`
 - `Z:\easymap_server\uploads\8\8.shx`
+
+The working tool should use this local input convention:
+
+```text
+input/
+  taichung/
+    8.shp
+    8.shx
+    8.dbf
+    8.db
+  changhua/
+    *.shp
+    *.shx
+    *.dbf
+```
+
+Each direct child folder of `input/` is treated as one county key. A county folder may contain either a SQLite/SpatiaLite `.db` with `GEOMETRY_WKT`, or a shapefile set. Taichung is the first implementation target; the layout should not hard-code Taichung-only assumptions.
+
+GDAL tools should be called from the fixed local install path:
+
+```text
+C:\ms4w_MSSQL\GDAL
+```
+
+Use full executable paths such as `C:\ms4w_MSSQL\GDAL\ogr2ogr.exe` and `C:\ms4w_MSSQL\GDAL\ogrinfo.exe` rather than relying on `PATH`.
 
 Observed data facts:
 
@@ -97,7 +125,16 @@ Terrain height is not baked into each building in MVP. The first version focuses
 
 ## Procedural Material Strategy
 
-The MVP uses procedural materials rather than real photo textures.
+The MVP supports output profiles. Each profile creates its own `tileset.json` using the same input geometry and height rules.
+
+Recommended profiles:
+
+- `white`: plain white/gray model for planning, overlay, printing, and performance checks.
+- `procedural`: default city-like material profile with deterministic wall and roof colors.
+- `height-debug`: diagnostic profile that colors buildings by floor count or computed height.
+- `textured`: reserved profile name for future real facade or generated texture work.
+
+The first production-looking MVP profile is `procedural`, which uses procedural materials rather than real photo textures.
 
 Material inputs:
 
@@ -129,13 +166,24 @@ Output should be written under a stable local folder, for example:
 ```text
 output/
   taichung/
-    tileset.json
-    manifest.json
-    logs/
-    tiles/
+    white/
+      tileset.json
+      manifest.json
+      logs/
+      tiles/
+    procedural/
+      tileset.json
+      manifest.json
+      logs/
+      tiles/
+    height-debug/
+      tileset.json
+      manifest.json
+      logs/
+      tiles/
 ```
 
-The exact internal tile layout can be adjusted during implementation, but the public entry point should be `output/taichung/tileset.json`.
+The exact internal tile layout can be adjusted during implementation, but the public entry point should be `output/<county>/<profile>/tileset.json`.
 
 The output should support:
 
@@ -148,6 +196,8 @@ The output should support:
 Manifest should include:
 
 - source file paths
+- county key
+- profile key
 - source feature count
 - source SRS assumption
 - height formula
@@ -199,7 +249,7 @@ Minimum validation for MVP:
 - inspect input schema and feature count
 - generate a small sample tileset first
 - verify full pipeline on a limited bounding box before full Taichung
-- verify full-city output has `tileset.json`
+- verify `white`, `procedural`, and `height-debug` outputs each have `tileset.json`
 - open local viewer and confirm buildings appear at the right Taichung location
 - compare at least one location with the existing id=365 prototype height behavior
 
@@ -211,6 +261,5 @@ Deferred until after MVP:
 - baked terrain height per building
 - LOD2 roof forms
 - per-building metadata query UI
-- all Taiwan county batch automation
+- full all-Taiwan county automation beyond the input/output convention
 - server-side publishing workflow
-
