@@ -21,7 +21,10 @@ function unionRegion(tiles) {
 }
 
 export function writeTileset({ outputRoot, sourceSummary, tiles }) {
-  fs.rmSync(outputRoot, { recursive: true, force: true });
+  fs.mkdirSync(outputRoot, { recursive: true });
+  fs.rmSync(path.join(outputRoot, "tiles"), { recursive: true, force: true });
+  fs.rmSync(path.join(outputRoot, "tileset.json"), { force: true });
+  fs.rmSync(path.join(outputRoot, "manifest.json"), { force: true });
   fs.mkdirSync(path.join(outputRoot, "tiles"), { recursive: true });
 
   for (const tile of tiles) {
@@ -40,7 +43,8 @@ export function writeTileset({ outputRoot, sourceSummary, tiles }) {
         boundingVolume: { region: toRegionRadians(tile.region) },
         geometricError: 40,
         content: { uri: `tiles/${tile.id}.b3dm` },
-        refine: "ADD"
+        refine: "ADD",
+        ...(tile.transform ? { transform: tile.transform } : {})
       }))
     }
   };

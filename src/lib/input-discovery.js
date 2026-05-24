@@ -12,7 +12,9 @@ export function resolveCountySource({ county, files }) {
 }
 
 export function discoverCountySource(countyDir, county) {
-  if (!fs.existsSync(countyDir)) {
+  try {
+    fs.lstatSync(countyDir);
+  } catch {
     throw new Error(`County input folder not found: ${countyDir}`);
   }
 
