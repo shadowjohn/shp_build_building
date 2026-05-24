@@ -30,16 +30,18 @@ export function createMaterialForBuilding(building) {
   }
 
   if (building.profile === "height-debug") {
-    const t = clamp01(building.heightMeters / 90);
+    const bucket = Math.min(5, Math.floor(building.heightMeters / 15));
+    const t = bucket / 5;
     return {
       type: "height-debug",
-      wall: { name: "height-debug-wall", baseColorFactor: rgba(0.2 + t * 0.8, 0.8 - t * 0.5, 0.25, 1) },
-      roof: { name: "height-debug-roof", baseColorFactor: rgba(0.15 + t * 0.7, 0.25, 0.85 - t * 0.5, 1) }
+      wall: { name: `height-debug-wall-${bucket}`, baseColorFactor: rgba(0.2 + t * 0.8, 0.8 - t * 0.5, 0.25, 1) },
+      roof: { name: `height-debug-roof-${bucket}`, baseColorFactor: rgba(0.15 + t * 0.7, 0.25, 0.85 - t * 0.5, 1) }
     };
   }
 
   const type = classifyBuilding(building);
-  const n = stableUnit(building.id);
+  const variant = Math.min(4, Math.floor(stableUnit(building.id) * 5));
+  const n = variant / 4;
   const palettes = {
     lowrise: {
       wall: rgba(0.72 + n * 0.12, 0.70 + n * 0.10, 0.64 + n * 0.10, 1),
@@ -57,7 +59,7 @@ export function createMaterialForBuilding(building) {
 
   return {
     type,
-    wall: { name: `${type}-wall`, baseColorFactor: palettes[type].wall },
-    roof: { name: `${type}-roof`, baseColorFactor: palettes[type].roof }
+    wall: { name: `${type}-wall-${variant}`, baseColorFactor: palettes[type].wall },
+    roof: { name: `${type}-roof-${variant}`, baseColorFactor: palettes[type].roof }
   };
 }

@@ -3,6 +3,11 @@ import { createB3dm } from "../src/lib/b3dm-writer.js";
 import { createGlb } from "../src/lib/glb-writer.js";
 import { buildExtrudedMesh } from "../src/lib/mesh-builder.js";
 
+function glbJson(glb) {
+  const jsonLength = glb.readUInt32LE(12);
+  return JSON.parse(glb.slice(20, 20 + jsonLength).toString("utf8").trim());
+}
+
 describe("mesh and tile content", () => {
   it("extrudes a rectangle into positions and indices", () => {
     const mesh = buildExtrudedMesh({
@@ -30,5 +35,19 @@ describe("mesh and tile content", () => {
     expect(glb.slice(0, 4).toString("utf8")).toBe("glTF");
     const b3dm = createB3dm(glb);
     expect(b3dm.slice(0, 4).toString("utf8")).toBe("b3dm");
+  });
+
+  it("groups meshes with the same material into one primitive", () => {
+    const meshes = [1, 2].map((id) => buildExtrudedMesh({
+      id,
+      rings: [[[id * 20, 0], [id * 20 + 10, 0], [id * 20 + 10, 10], [id * 20, 10]]],
+      heightMeters: 6.6,
+      materialIndex: 0
+    }));
+    const glb = createGlb({
+      meshes,
+      materials: [{ name: "wall", baseColorFactor: [1, 1, 1, 1] }]
+    });
+    expect(glbJson(glb).meshes[0].primitives).toHaveLength(1);
   });
 });

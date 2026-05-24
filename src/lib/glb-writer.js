@@ -18,25 +18,31 @@ function indexBuffer(values) {
 export function createGlb({ meshes, materials }) {
   const positions = meshes.flatMap((mesh) => mesh.positions);
   let vertexOffset = 0;
-  const indices = [];
-  const primitives = [];
+  const groupedIndices = new Map();
   for (const mesh of meshes) {
-    const indexOffset = indices.length;
-    for (const index of mesh.indices) indices.push(index + vertexOffset);
-    primitives.push({
-      attributes: { POSITION: 0 },
-      indices: primitives.length + 1,
-      material: mesh.materialIndex
-    });
-    mesh.indexByteOffset = indexOffset * 4;
-    mesh.indexCount = mesh.indices.length;
+    const materialIndex = mesh.materialIndex ?? 0;
+    if (!groupedIndices.has(materialIndex)) groupedIndices.set(materialIndex, []);
+    const group = groupedIndices.get(materialIndex);
+    for (const index of mesh.indices) group.push(index + vertexOffset);
     vertexOffset += mesh.positions.length / 3;
   }
 
   const mins = [0, 1, 2].map((axis) => Math.min(...meshes.map((mesh) => mesh.min[axis])));
   const maxs = [0, 1, 2].map((axis) => Math.max(...meshes.map((mesh) => mesh.max[axis])));
   const positionBytes = floatBuffer(positions);
-  const indexBytes = indexBuffer(indices);
+  const groups = [...groupedIndices.entries()].sort(([a], [b]) => a - b).map(([materialIndex, indices]) => ({
+    materialIndex,
+    indices,
+    byteOffset: 0,
+    byteLength: indices.length * 4
+  }));
+  let indexByteOffset = 0;
+  const indexBuffers = groups.map((group) => {
+    group.byteOffset = indexByteOffset;
+    indexByteOffset += group.byteLength;
+    return indexBuffer(group.indices);
+  });
+  const indexBytes = Buffer.concat(indexBuffers);
   const bin = pad4(Buffer.concat([positionBytes, indexBytes]), 0);
   const json = {
     asset: { version: "2.0", generator: "shp_build_building" },
@@ -47,11 +53,11 @@ export function createGlb({ meshes, materials }) {
     ],
     accessors: [
       { bufferView: 0, componentType: 5126, count: positions.length / 3, type: "VEC3", min: mins, max: maxs },
-      ...meshes.map((mesh) => ({
+      ...groups.map((group) => ({
         bufferView: 1,
-        byteOffset: mesh.indexByteOffset,
+        byteOffset: group.byteOffset,
         componentType: 5125,
-        count: mesh.indexCount,
+        count: group.indices.length,
         type: "SCALAR"
       }))
     ],
@@ -59,7 +65,13 @@ export function createGlb({ meshes, materials }) {
       name: material.name,
       pbrMetallicRoughness: { baseColorFactor: material.baseColorFactor, metallicFactor: 0, roughnessFactor: 0.85 }
     })),
-    meshes: [{ primitives }],
+    meshes: [{
+      primitives: groups.map((group, index) => ({
+        attributes: { POSITION: 0 },
+        indices: index + 1,
+        material: group.materialIndex
+      }))
+    }],
     nodes: [{ mesh: 0 }],
     scenes: [{ nodes: [0] }],
     scene: 0

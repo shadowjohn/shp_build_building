@@ -23,6 +23,6 @@ describe("materials", () => {
 
   it("supports white and height-debug profiles", () => {
     expect(createMaterialForBuilding({ id: 1, heightMeters: 20, areaMeters: 100, profile: "white" }).wall.name).toBe("white-wall");
-    expect(createMaterialForBuilding({ id: 1, heightMeters: 80, areaMeters: 100, profile: "height-debug" }).wall.name).toBe("height-debug-wall");
+    expect(createMaterialForBuilding({ id: 1, heightMeters: 80, areaMeters: 100, profile: "height-debug" }).wall.name).toBe("height-debug-wall-5");
   });
 });

@@ -46,6 +46,10 @@ function tileOriginFromId(tileId, gridMeters) {
   return [(gx + 0.5) * gridMeters, (gy + 0.5) * gridMeters];
 }
 
+function materialKey(material) {
+  return `${material.name}:${material.baseColorFactor.join(",")}`;
+}
+
 export function build(config = resolveBuildConfig()) {
   const outRoot = config.output.profileRoot;
   if (fs.existsSync(outRoot) && !config.force) {
@@ -114,9 +118,14 @@ export function build(config = resolveBuildConfig()) {
   for (const bucket of buckets.values()) {
     const meshes = [];
     const materials = [];
+    const materialIndexes = new Map();
     for (const building of bucket.buildings) {
-      const materialIndex = materials.length;
-      materials.push(building.material.wall);
+      const key = materialKey(building.material.wall);
+      if (!materialIndexes.has(key)) {
+        materialIndexes.set(key, materials.length);
+        materials.push(building.material.wall);
+      }
+      const materialIndex = materialIndexes.get(key);
       meshes.push(buildExtrudedMesh({
         id: building.row.id,
         rings: [localizeRing(building.outerRing, bucket.origin)],
