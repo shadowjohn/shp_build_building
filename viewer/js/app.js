@@ -1,11 +1,13 @@
 (function main() {
   const status = document.getElementById("status");
   const profileSelect = document.getElementById("profile");
+  const baseMapSelect = document.getElementById("baseMap");
   const params = new URLSearchParams(location.search);
   const county = params.get("county") || "taichung";
   let activeLayer = null;
 
   profileSelect.value = params.get("profile") || "procedural";
+  baseMapSelect.value = params.get("baseMap") || "googlesatellite";
 
   function setStatus(text) {
     status.textContent = text;
@@ -47,7 +49,7 @@
   map.enable3D(function () {
     map.setTerrainUrl(`/data/terrain20M/${county}`);
     map.enable3DTerrain();
-    map.switchMapType("googlesatellite");
+    map.switchMapType(baseMapSelect.value);
     map.panTo3D(new dgXYZ(120.66588368, 24.11933551, 2600));
     map.set3DTilt(0.9);
     map.set3DHeading(0);
@@ -57,6 +59,10 @@
 
   profileSelect.addEventListener("change", function () {
     loadTileset(map);
+  });
+
+  baseMapSelect.addEventListener("change", function () {
+    map.switchMapType(baseMapSelect.value);
   });
 
   document.getElementById("flyHome").addEventListener("click", function () {
