@@ -39,6 +39,16 @@ export function createMaterialForBuilding(building) {
     };
   }
 
+  if (building.profile === "textured") {
+    const styleIndex = Math.max(0, Math.floor(Number(building.textureStyleIndex) || 0));
+    return {
+      type: "textured",
+      ground: { name: `textured-ground-${styleIndex}`, baseColorFactor: rgba(1, 1, 1, 1), texture: { kind: "ground", styleIndex } },
+      wall: { name: `textured-wall-${styleIndex}`, baseColorFactor: rgba(1, 1, 1, 1), texture: { kind: "wall", styleIndex } },
+      roof: { name: `textured-roof-${styleIndex}`, baseColorFactor: rgba(1, 1, 1, 1), texture: { kind: "roof", styleIndex } }
+    };
+  }
+
   const type = classifyBuilding(building);
   const variant = Math.min(4, Math.floor(stableUnit(building.id) * 5));
   const n = variant / 4;

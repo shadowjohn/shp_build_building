@@ -6,16 +6,28 @@
   "scripts": {
     "test": "vitest run",
     "check": "node --check src/build-taichung.js",
-    "build:sample": "node src/build-taichung.js --county taichung --profile procedural --sample 200 --force",
-    "build:bbox": "node src/build-taichung.js --county taichung --profile procedural --bbox 120.64,24.08,120.69,24.12 --force",
-    "build:taichung": "node src/build-taichung.js --county taichung --profile procedural --full --force",
-    "build:taichung:white": "node src/build-taichung.js --county taichung --profile white --full --force",
-    "build:taichung:height": "node src/build-taichung.js --county taichung --profile height-debug --full --force",
+    "build:sample": "node src/build-taichung.js --county taichung --profile procedural --height-mode height0 --edges --sample 200 --force",
+    "build:bbox": "node src/build-taichung.js --county taichung --profile procedural --height-mode terrain --edges --bbox 120.64,24.08,120.69,24.12 --force",
+    "build:taichung": "node src/build-taichung.js --county taichung --profile procedural --height-mode terrain --edges --full --force",
+    "build:taichung:height0": "node src/build-taichung.js --county taichung --profile procedural --height-mode height0 --edges --full --force",
+    "build:taichung:terrain:edges": "node src/build-taichung.js --county taichung --profile procedural --height-mode terrain --edges --full --force",
+    "build:taichung:height0:edges": "node src/build-taichung.js --county taichung --profile procedural --height-mode height0 --edges --full --force",
+    "build:taichung:textured:terrain": "node src/build-taichung.js --county taichung --profile textured --height-mode terrain --edges --full --force",
+    "build:taichung:textured:height0": "node src/build-taichung.js --county taichung --profile textured --height-mode height0 --edges --full --force",
+    "build:taichung:white": "node src/build-taichung.js --county taichung --profile white --height-mode terrain --edges --full --force",
+    "build:taichung:white:height0": "node src/build-taichung.js --county taichung --profile white --height-mode height0 --edges --full --force",
+    "build:taichung:height": "node src/build-taichung.js --county taichung --profile height-debug --height-mode terrain --edges --full --force",
+    "build:taoyuan:textured:terrain": "node src/build-taichung.js --county taoyuan --table 8420 --profile textured --height-mode terrain --edges --full --force",
+    "build:taoyuan:white:terrain": "node src/build-taichung.js --county taoyuan --table 8420 --profile white --height-mode terrain --edges --full --force",
+    "build:newtaipei:textured:terrain": "node src/build-taichung.js --county newtaipei --table 8418 --profile textured --height-mode terrain --edges --full --force",
+    "build:newtaipei:white:terrain": "node src/build-taichung.js --county newtaipei --table 8418 --profile white --height-mode terrain --edges --full --force",
     "serve:viewer": "npx http-server . -p 8088 -c-1"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",
     "earcut": "^3.0.2",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
     "proj4": "^2.20.8"
   },
   "devDependencies": {

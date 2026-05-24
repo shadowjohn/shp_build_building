@@ -11,17 +11,29 @@ describe("config", () => {
     expect(defaultConfig.gdal.ogr2ogr).toBe("C:\\ms4w_MSSQL\\GDAL\\ogr2ogr.exe");
     expect(defaultConfig.profiles.procedural.kind).toBe("procedural");
     expect(defaultConfig.profiles.white.kind).toBe("white");
+    expect(defaultConfig.imagery.allowDownload).toBe(false);
     expect(defaultConfig.height.floorMeters).toBe(3.3);
   });
 
   it("resolves sample mode", () => {
-    const cfg = resolveBuildConfig(["--county", "taichung", "--profile", "white", "--sample", "25", "--force"]);
+    const cfg = resolveBuildConfig(["--county", "taichung", "--table", "8420", "--profile", "white", "--sample", "25", "--force"]);
     expect(cfg.county).toBe("taichung");
+    expect(cfg.source.table).toBe("8420");
     expect(cfg.profile).toBe("white");
     expect(cfg.mode).toBe("sample");
     expect(cfg.sample).toBe(25);
     expect(cfg.force).toBe(true);
-    expect(cfg.output.profileRoot.endsWith("output\\taichung\\white") || cfg.output.profileRoot.endsWith("output/taichung/white")).toBe(true);
+    expect(cfg.heightMode).toBe("height0");
+    expect(cfg.output.profileRoot.endsWith("output\\taichung\\white-height0") || cfg.output.profileRoot.endsWith("output/taichung/white-height0")).toBe(true);
+  });
+
+  it("resolves terrain height mode and outline flag", () => {
+    const cfg = resolveBuildConfig(["--county", "taichung", "--height-mode", "terrain", "--edges"]);
+    expect(cfg.heightMode).toBe("terrain");
+    expect(cfg.outlines.enabled).toBe(true);
+    expect(cfg.output.variant).toBe("procedural-terrain-edges");
+    expect(cfg.terrain.raster.endsWith("taichung-4326.tif")).toBe(true);
+    expect(cfg.output.profileRoot.endsWith("output\\taichung\\procedural-terrain-edges") || cfg.output.profileRoot.endsWith("output/taichung/procedural-terrain-edges")).toBe(true);
   });
 });
 

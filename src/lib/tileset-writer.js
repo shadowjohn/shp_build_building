@@ -20,7 +20,22 @@ function unionRegion(tiles) {
   ];
 }
 
-export function writeTileset({ outputRoot, sourceSummary, tiles }) {
+function groupKey(tileId, parentGridTiles) {
+  const [gx, gy] = tileId.split("_").map(Number);
+  return `${Math.floor(gx / parentGridTiles)}_${Math.floor(gy / parentGridTiles)}`;
+}
+
+function groupTiles(tiles, parentGridTiles) {
+  const groups = new Map();
+  for (const tile of tiles) {
+    const key = groupKey(tile.id, parentGridTiles);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(tile);
+  }
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b, "en", { numeric: true }));
+}
+
+export function writeTileset({ outputRoot, sourceSummary, tiles, tiling = {} }) {
   fs.mkdirSync(outputRoot, { recursive: true });
   fs.rmSync(path.join(outputRoot, "tiles"), { recursive: true, force: true });
   fs.rmSync(path.join(outputRoot, "tileset.json"), { force: true });
@@ -31,20 +46,31 @@ export function writeTileset({ outputRoot, sourceSummary, tiles }) {
     fs.writeFileSync(path.join(outputRoot, "tiles", `${tile.id}.b3dm`), tile.content);
   }
 
+  const parentGridTiles = tiling.parentGridTiles ?? 4;
+  const geometricErrorRoot = tiling.geometricErrorRoot ?? 500;
+  const geometricErrorParent = tiling.geometricErrorParent ?? 180;
+  const geometricErrorTile = tiling.geometricErrorTile ?? 80;
+  const groupedTiles = groupTiles(tiles, parentGridTiles);
   const rootRegion = unionRegion(tiles);
   const tileset = {
     asset: { version: "1.0", generator: "shp_build_building", gltfUpAxis: "Z" },
-    geometricError: 500,
+    geometricError: geometricErrorRoot,
     root: {
       boundingVolume: { region: toRegionRadians(rootRegion) },
-      geometricError: 250,
+      geometricError: geometricErrorParent,
       refine: "ADD",
-      children: tiles.map((tile) => ({
-        boundingVolume: { region: toRegionRadians(tile.region) },
-        geometricError: 40,
-        content: { uri: `tiles/${tile.id}.b3dm` },
+      children: groupedTiles.map(([id, group]) => ({
+        boundingVolume: { region: toRegionRadians(unionRegion(group)) },
+        geometricError: geometricErrorParent,
         refine: "ADD",
-        ...(tile.transform ? { transform: tile.transform } : {})
+        extras: { id, tileCount: group.length },
+        children: group.map((tile) => ({
+          boundingVolume: { region: toRegionRadians(tile.region) },
+          geometricError: geometricErrorTile,
+          content: { uri: `tiles/${tile.id}.b3dm` },
+          refine: "ADD",
+          ...(tile.transform ? { transform: tile.transform } : {})
+        }))
       }))
     }
   };
@@ -54,6 +80,7 @@ export function writeTileset({ outputRoot, sourceSummary, tiles }) {
     generatedAt: new Date().toISOString(),
     source: sourceSummary,
     tileCount: tiles.length,
+    parentTileCount: groupedTiles.length,
     featureCount: tiles.reduce((sum, tile) => sum + tile.featureCount, 0)
   }, null, 2), "utf8");
 }

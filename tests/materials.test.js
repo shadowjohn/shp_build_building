@@ -25,4 +25,14 @@ describe("materials", () => {
     expect(createMaterialForBuilding({ id: 1, heightMeters: 20, areaMeters: 100, profile: "white" }).wall.name).toBe("white-wall");
     expect(createMaterialForBuilding({ id: 1, heightMeters: 80, areaMeters: 100, profile: "height-debug" }).wall.name).toBe("height-debug-wall-5");
   });
+
+  it("assigns textured wall and roof styles from sampled imagery style index", () => {
+    const mat = createMaterialForBuilding({ id: 42, heightMeters: 22, areaMeters: 150, profile: "textured", textureStyleIndex: 7 });
+    expect(mat.ground.texture.kind).toBe("ground");
+    expect(mat.wall.texture.kind).toBe("wall");
+    expect(mat.roof.texture.kind).toBe("roof");
+    expect(mat.ground.texture.styleIndex).toBe(7);
+    expect(mat.wall.texture.styleIndex).toBe(7);
+    expect(mat.roof.texture.styleIndex).toBe(7);
+  });
 });

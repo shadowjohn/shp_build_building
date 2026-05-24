@@ -23,6 +23,8 @@ describe("tileset writer", () => {
     const tileset = JSON.parse(fs.readFileSync(path.join(out, "tileset.json"), "utf8"));
     const manifest = JSON.parse(fs.readFileSync(path.join(out, "manifest.json"), "utf8"));
     expect(tileset.asset.version).toBe("1.0");
+    expect(tileset.root.children[0].children[0].content.uri).toBe("tiles/0_0.b3dm");
+    expect(manifest.parentTileCount).toBe(1);
     expect(manifest.source.county).toBe("taichung");
     fs.rmSync(out, { recursive: true, force: true });
   });

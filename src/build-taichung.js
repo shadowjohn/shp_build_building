@@ -9,8 +9,10 @@ import { createGlb } from "./lib/glb-writer.js";
 import { buildExtrudedMesh } from "./lib/mesh-builder.js";
 import { createMaterialForBuilding } from "./lib/materials.js";
 import { discoverCountySource } from "./lib/input-discovery.js";
+import { createImageryStyleSampler } from "./lib/imagery-style-sampler.js";
 import { readBuildings } from "./lib/source-reader.js";
 import { normalizeSourceToSqlite } from "./lib/shp-normalizer.js";
+import { createTerrainSampler } from "./lib/terrain-sampler.js";
 import { eastNorthUpToFixedFrame, ringToLonLat, twd97ToLonLat } from "./lib/projection.js";
 import { writeTileset } from "./lib/tileset-writer.js";
 
@@ -18,11 +20,11 @@ export function planTileId(centroid, gridMeters) {
   return `${Math.floor(centroid[0] / gridMeters)}_${Math.floor(centroid[1] / gridMeters)}`;
 }
 
-function regionFromRings(ringsLonLat, heightMeters) {
+function regionFromRings(ringsLonLat, minHeightMeters, maxHeightMeters) {
   const points = ringsLonLat.flat();
   const lons = points.map(([lon]) => lon);
   const lats = points.map(([, lat]) => lat);
-  return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats), 0, heightMeters];
+  return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats), minHeightMeters, maxHeightMeters];
 }
 
 function mergeRegion(a, b) {
@@ -50,7 +52,12 @@ function materialKey(material) {
   return `${material.name}:${material.baseColorFactor.join(",")}`;
 }
 
-export function build(config = resolveBuildConfig()) {
+function outlineMaterialForProfile(config) {
+  const color = config.profile === "textured" ? [0.16, 0.15, 0.13, 0.32] : config.outlines.color;
+  return { name: "building-outline", baseColorFactor: color };
+}
+
+export async function build(config = resolveBuildConfig()) {
   const outRoot = config.output.profileRoot;
   if (fs.existsSync(outRoot) && !config.force) {
     throw new Error(`Output exists. Use --force to replace: ${outRoot}`);
@@ -67,10 +74,13 @@ export function build(config = resolveBuildConfig()) {
   logger.info("build started", {
     county: config.county,
     profile: config.profile,
+    heightMode: config.heightMode,
     mode: config.mode,
     source: discovered.path
   });
 
+  const terrainSampler = createTerrainSampler(config);
+  const imageryStyleSampler = createImageryStyleSampler(config);
   const buckets = new Map();
   let readCount = 0;
   let skipped = 0;
@@ -86,15 +96,21 @@ export function build(config = resolveBuildConfig()) {
       skipped += 1;
       continue;
     }
-    const heightMeters = computeHeightMeters(row.floors, config.height);
+    const rawHeightMeters = Number(row.heightMeters);
+    const heightMeters = Number.isFinite(rawHeightMeters) && rawHeightMeters > 0
+      ? Math.min(rawHeightMeters, config.height.maxMeters)
+      : computeHeightMeters(row.floors, config.height);
     const areaMeters = computeAreaMeters(outerRing);
+    const [centroidLon, centroidLat] = twd97ToLonLat(row.centroid[0], row.centroid[1]);
+    const textureStyleIndex = await imageryStyleSampler.styleForLonLat(centroidLon, centroidLat);
     const material = createMaterialForBuilding({
       id: row.id,
       heightMeters,
       areaMeters,
       b1b: row.b1b,
       b1c: row.b1c,
-      profile: config.profile
+      profile: config.profile,
+      textureStyleIndex
     });
     const tileId = planTileId(row.centroid, config.tiling.gridMeters);
     if (!buckets.has(tileId)) {
@@ -103,34 +119,78 @@ export function build(config = resolveBuildConfig()) {
       buckets.set(tileId, {
         id: tileId,
         origin,
-        transform: eastNorthUpToFixedFrame(lon, lat, 0),
+        lon,
+        lat,
+        groundHeightMeters: 0,
+        transform: null,
         buildings: [],
         region: null
       });
     }
     const bucket = buckets.get(tileId);
-    const ringsLonLat = [ringToLonLat(outerRing)];
-    bucket.region = mergeRegion(bucket.region, regionFromRings(ringsLonLat, heightMeters));
     bucket.buildings.push({ row, outerRing, heightMeters, areaMeters, material });
   }
+
+  const bucketList = [...buckets.values()];
+  const groundHeights = terrainSampler.sampleMany(bucketList.map((bucket) => ({ lon: bucket.lon, lat: bucket.lat })));
+  bucketList.forEach((bucket, index) => {
+    bucket.groundHeightMeters = groundHeights[index] ?? 0;
+    bucket.transform = eastNorthUpToFixedFrame(bucket.lon, bucket.lat, bucket.groundHeightMeters);
+    for (const building of bucket.buildings) {
+      const ringsLonLat = [ringToLonLat(building.outerRing)];
+      bucket.region = mergeRegion(bucket.region, regionFromRings(
+        ringsLonLat,
+        bucket.groundHeightMeters,
+        bucket.groundHeightMeters + building.heightMeters
+      ));
+    }
+  });
 
   const tiles = [];
   for (const bucket of buckets.values()) {
     const meshes = [];
     const materials = [];
     const materialIndexes = new Map();
+    let outlineMaterialIndex = null;
+    if (config.outlines.enabled) {
+      outlineMaterialIndex = materials.length;
+      materials.push(outlineMaterialForProfile(config));
+    }
     for (const building of bucket.buildings) {
+      let groundMaterialIndex = undefined;
+      if (building.material.ground) {
+        const groundKey = materialKey(building.material.ground);
+        if (!materialIndexes.has(groundKey)) {
+          materialIndexes.set(groundKey, materials.length);
+          materials.push(building.material.ground);
+        }
+        groundMaterialIndex = materialIndexes.get(groundKey);
+      }
       const key = materialKey(building.material.wall);
       if (!materialIndexes.has(key)) {
         materialIndexes.set(key, materials.length);
         materials.push(building.material.wall);
       }
       const materialIndex = materialIndexes.get(key);
+      const roofKey = materialKey(building.material.roof);
+      if (!materialIndexes.has(roofKey)) {
+        materialIndexes.set(roofKey, materials.length);
+        materials.push(building.material.roof);
+      }
+      const roofMaterialIndex = materialIndexes.get(roofKey);
       meshes.push(buildExtrudedMesh({
         id: building.row.id,
         rings: [localizeRing(building.outerRing, bucket.origin)],
         heightMeters: building.heightMeters,
-        materialIndex
+        groundMaterialIndex,
+        materialIndex,
+        roofMaterialIndex,
+        outline: config.outlines.enabled,
+        lineMaterialIndex: outlineMaterialIndex,
+        groundFloorHeightMeters: config.profile === "textured" ? config.height.floorMeters : undefined,
+        textureScaleXMeters: config.profile === "textured" ? 42 : undefined,
+        floorHeightMeters: config.profile === "textured" ? config.height.floorMeters : undefined,
+        floorsPerTexture: config.profile === "textured" ? 4 : undefined
       }));
     }
     const glb = createGlb({ meshes, materials });
@@ -154,17 +214,29 @@ export function build(config = resolveBuildConfig()) {
       table: normalized.table,
       srs: config.source.srs,
       mode: config.mode,
+      heightMode: config.heightMode,
+      terrain: {
+        mode: terrainSampler.mode,
+        source: terrainSampler.source
+      },
+      imagery: imageryStyleSampler.summary(),
       readCount,
       skipped,
       height: config.height,
+      outlines: config.outlines,
+      tiling: config.tiling,
       materialVersion: config.material.version
     },
-    tiles
+    tiles,
+    tiling: config.tiling
   });
-  logger.info("build finished", { county: config.county, profile: config.profile, readCount, skipped, tileCount: tiles.length, output: outRoot });
+  logger.info("build finished", { county: config.county, profile: config.profile, heightMode: config.heightMode, readCount, skipped, tileCount: tiles.length, output: outRoot });
 }
 
 const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 if (isMain) {
-  build(resolveBuildConfig(process.argv.slice(2), defaultConfig));
+  build(resolveBuildConfig(process.argv.slice(2), defaultConfig)).catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }

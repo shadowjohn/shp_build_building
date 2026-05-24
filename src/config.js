@@ -15,7 +15,8 @@ export const defaultConfig = {
   },
   gdal: {
     ogr2ogr: "C:\\ms4w_MSSQL\\GDAL\\ogr2ogr.exe",
-    ogrinfo: "C:\\ms4w_MSSQL\\GDAL\\ogrinfo.exe"
+    ogrinfo: "C:\\ms4w_MSSQL\\GDAL\\ogrinfo.exe",
+    gdallocationinfo: "C:\\ms4w_MSSQL\\GDAL\\gdallocationinfo.exe"
   },
   output: {
     root: "output",
@@ -30,12 +31,32 @@ export const defaultConfig = {
   },
   tiling: {
     gridMeters: 750,
+    parentGridTiles: 4,
     maxFeaturesPerTile: 1800,
     geometricErrorRoot: 500,
-    geometricErrorTile: 40
+    geometricErrorParent: 180,
+    geometricErrorTile: 80
   },
   material: {
     version: "procedural-v1"
+  },
+  terrain: {
+    root: "D:\\mytools\\dem20M_terrain\\data\\work",
+    rasterSuffix: "-4326.tif",
+    sampleChunkSize: 50000
+  },
+  imagery: {
+    root: "cache\\imagery",
+    provider: "google_satellite",
+    zoom: 17,
+    allowDownload: false,
+    delayMs: 250,
+    timeoutMs: 10000,
+    maxDownloads: 0
+  },
+  outlines: {
+    enabled: false,
+    color: [0.12, 0.12, 0.12, 0.65]
   },
   profiles: {
     white: { kind: "white", label: "White model" },
@@ -53,6 +74,7 @@ export function resolveBuildConfig(argv = process.argv.slice(2)) {
   cfg.sample = 200;
   cfg.force = false;
   cfg.bbox = null;
+  cfg.heightMode = "height0";
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -61,6 +83,8 @@ export function resolveBuildConfig(argv = process.argv.slice(2)) {
       cfg.sample = Number(argv[++i]);
     } else if (arg === "--county") {
       cfg.county = argv[++i];
+    } else if (arg === "--table") {
+      cfg.source.table = argv[++i];
     } else if (arg === "--profile") {
       cfg.profile = argv[++i];
     } else if (arg === "--bbox") {
@@ -73,6 +97,25 @@ export function resolveBuildConfig(argv = process.argv.slice(2)) {
       cfg.force = true;
     } else if (arg === "--out") {
       cfg.output.root = argv[++i];
+    } else if (arg === "--height-mode") {
+      cfg.heightMode = argv[++i];
+    } else if (arg === "--terrain-root") {
+      cfg.terrain.root = argv[++i];
+    } else if (arg === "--edges") {
+      cfg.outlines.enabled = true;
+    } else if (arg === "--no-edges") {
+      cfg.outlines.enabled = false;
+    } else if (arg === "--imagery-cache") {
+      cfg.imagery.root = argv[++i];
+    } else if (arg === "--imagery-provider") {
+      cfg.imagery.provider = argv[++i];
+    } else if (arg === "--imagery-zoom") {
+      cfg.imagery.zoom = Number(argv[++i]);
+    } else if (arg === "--download-imagery") {
+      cfg.imagery.allowDownload = true;
+      cfg.imagery.maxDownloads = Number(argv[++i]);
+    } else if (arg === "--imagery-delay-ms") {
+      cfg.imagery.delayMs = Number(argv[++i]);
     } else {
       throw new Error(`Unknown argument: ${arg}`);
     }
@@ -90,9 +133,21 @@ export function resolveBuildConfig(argv = process.argv.slice(2)) {
   if (!cfg.profiles[cfg.profile]) {
     throw new Error(`Unknown profile: ${cfg.profile}`);
   }
+  if (!["height0", "terrain"].includes(cfg.heightMode)) {
+    throw new Error("--height-mode must be height0 or terrain");
+  }
+  if (!Number.isInteger(cfg.imagery.zoom) || cfg.imagery.zoom < 0 || cfg.imagery.zoom > 22) {
+    throw new Error("--imagery-zoom must be an integer from 0 to 22");
+  }
+  if (cfg.imagery.allowDownload && (!Number.isFinite(cfg.imagery.maxDownloads) || cfg.imagery.maxDownloads <= 0)) {
+    throw new Error("--download-imagery must be followed by a positive max download count");
+  }
 
   cfg.input.countyDir = path.resolve(cfg.input.root, cfg.county);
-  cfg.output.profileRoot = path.resolve(cfg.output.root, cfg.county, cfg.profile);
+  cfg.imagery.root = path.resolve(cfg.imagery.root);
+  cfg.terrain.raster = path.resolve(cfg.terrain.root, cfg.county, `${cfg.county}${cfg.terrain.rasterSuffix}`);
+  cfg.output.variant = `${cfg.profile}-${cfg.heightMode}${cfg.outlines.enabled ? "-edges" : ""}`;
+  cfg.output.profileRoot = path.resolve(cfg.output.root, cfg.county, cfg.output.variant);
 
   return cfg;
 }
