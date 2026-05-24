@@ -28,7 +28,7 @@
 - Create `src/lib/shp-normalizer.js`: convert dropped shapefiles into a working SQLite table with `GEOMETRY_WKT`.
 - Create `src/lib/source-reader.js`: stream building rows from SQLite with bbox and limit filters.
 - Create `src/build-taichung.js`: CLI entry point for sample, bbox, and full-city builds.
-- Create `viewer/index.html`, `viewer/js/app.js`, `viewer/css/style.css`: local Cesium verification viewer.
+- Create `demo.html`, `viewer/js/app.js`, `viewer/css/style.css`: local Easymap CDN verification viewer with terrain and 3D Tiles.
 - Create `tests/*.test.js`: focused unit tests for material, WKT, projection, mesh, and B3DM/tileset headers.
 - Modify `.gitignore`: ignore `node_modules/`, `output/`, `logs/`, and temp build folders.
 
@@ -1471,16 +1471,16 @@ git commit -m "feat: add Taichung building build CLI"
 
 ---
 
-### Task 9: Verification Viewer
+### Task 9: Easymap Demo Viewer
 
 **Files:**
-- Create: `viewer/index.html`
+- Create: `demo.html`
 - Create: `viewer/css/style.css`
 - Create: `viewer/js/app.js`
 
-- [ ] **Step 1: Create viewer HTML**
+- [ ] **Step 1: Create Easymap demo HTML**
 
-Create `viewer/index.html`:
+Create `demo.html`:
 
 ```html
 <!doctype html>
@@ -1488,18 +1488,22 @@ Create `viewer/index.html`:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Taichung Building 3D Tiles Viewer</title>
+  <title>Easymap Taichung Building 3D Tiles Demo</title>
   <link rel="stylesheet" href="/viewer/css/style.css">
-  <script>
-    window.CESIUM_BASE_URL = "https://3wa.tw/inc/javascript/cesium/Cesium-1.141/Build/Cesium/";
-  </script>
-  <script src="https://3wa.tw/inc/javascript/cesium/Cesium-1.141/Build/Cesium/Cesium.js"></script>
-  <link rel="stylesheet" href="https://3wa.tw/inc/javascript/cesium/Cesium-1.141/Build/Cesium/Widgets/widgets.css">
+  <script src="http://www.focusit.com.tw/easymap/easymap/easymap.js"></script>
 </head>
 <body>
-  <div id="cesiumContainer"></div>
+  <div id="map"></div>
   <div id="panel">
     <strong>Taichung Buildings</strong>
+    <label>
+      Profile
+      <select id="profile">
+        <option value="procedural">procedural</option>
+        <option value="white">white</option>
+        <option value="height-debug">height-debug</option>
+      </select>
+    </label>
     <div id="status">Loading...</div>
     <button id="flyHome" type="button">Fly Taichung</button>
   </div>
@@ -1515,7 +1519,7 @@ Create `viewer/css/style.css`:
 ```css
 html,
 body,
-#cesiumContainer {
+#map {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -1558,56 +1562,55 @@ Create `viewer/js/app.js`:
     status.textContent = text;
   }
 
-  const viewer = new Cesium.Viewer("cesiumContainer", {
-    animation: false,
-    baseLayerPicker: false,
-    fullscreenButton: false,
-    geocoder: false,
-    homeButton: false,
-    infoBox: false,
-    navigationHelpButton: false,
-    sceneModePicker: false,
-    selectionIndicator: false,
-    timeline: false,
-    terrainProvider: new Cesium.EllipsoidTerrainProvider()
-  });
+  const params = new URLSearchParams(location.search);
+  const county = params.get("county") || "taichung";
+  const profileSelect = document.getElementById("profile");
+  profileSelect.value = params.get("profile") || "procedural";
 
-  viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    maximumLevel: 19
-  }));
+  const map = new Easymap("map");
+  map.enable3D(async function () {
+    const viewer = map._olcesium.ol3d.getCesiumScene
+      ? map._olcesium.ol3d.getCesiumScene()._view
+      : map.get3DViewer();
+    const cesiumViewer = map.get3DViewer ? map.get3DViewer() : viewer;
+    const sceneViewer = cesiumViewer.scene ? cesiumViewer : window.viewer;
 
-  try {
-    viewer.terrainProvider = await Cesium.CesiumTerrainProvider.fromUrl("/data/terrain20M/taichung", {
-      requestVertexNormals: true,
-      requestWaterMask: false
-    });
-  } catch (error) {
-    console.warn(error);
-  }
+    try {
+      sceneViewer.terrainProvider = await Cesium.CesiumTerrainProvider.fromUrl(`/data/terrain20M/${county}`, {
+        requestVertexNormals: true,
+        requestWaterMask: false
+      });
+      setStatus(`Terrain loaded: ${county}`);
+    } catch (error) {
+      console.error(error);
+      setStatus(`Terrain fallback: ${error.message}`);
+    }
 
-  try {
-    const params = new URLSearchParams(location.search);
-    const county = params.get("county") || "taichung";
-    const profile = params.get("profile") || "procedural";
-    const tileset = await Cesium.Cesium3DTileset.fromUrl(`/output/${county}/${profile}/tileset.json`);
-    viewer.scene.primitives.add(tileset);
-    await viewer.zoomTo(tileset);
-    setStatus("Tileset loaded");
-  } catch (error) {
-    console.error(error);
-    setStatus(`Tileset failed: ${error.message}`);
-  }
-
-  document.getElementById("flyHome").addEventListener("click", () => {
-    viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(120.66588368, 24.11933551, 3500),
-      orientation: {
-        heading: Cesium.Math.toRadians(0),
-        pitch: Cesium.Math.toRadians(-45),
-        roll: 0
+    async function loadTileset() {
+      const profile = profileSelect.value;
+      try {
+        const tileset = await Cesium.Cesium3DTileset.fromUrl(`/output/${county}/${profile}/tileset.json`);
+        sceneViewer.scene.primitives.add(tileset);
+        await sceneViewer.zoomTo(tileset);
+        setStatus(`Tileset loaded: ${county}/${profile}`);
+      } catch (error) {
+        console.error(error);
+        setStatus(`Tileset failed: ${error.message}`);
       }
+    }
+
+    profileSelect.addEventListener("change", loadTileset);
+    document.getElementById("flyHome").addEventListener("click", () => {
+      sceneViewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(120.66588368, 24.11933551, 3500),
+        orientation: {
+          heading: Cesium.Math.toRadians(0),
+          pitch: Cesium.Math.toRadians(-45),
+          roll: 0
+        }
+      });
     });
+    await loadTileset();
   });
 }());
 ```
@@ -1637,8 +1640,8 @@ Expected: server prints a URL on port `8088`. Open `http://localhost:8088/viewer
 Run:
 
 ```powershell
-git add viewer/index.html viewer/css/style.css viewer/js/app.js
-git commit -m "feat: add local tileset verification viewer"
+git add demo.html viewer/css/style.css viewer/js/app.js
+git commit -m "feat: add Easymap tileset demo viewer"
 ```
 
 ---

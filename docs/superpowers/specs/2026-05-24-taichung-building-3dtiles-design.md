@@ -209,12 +209,16 @@ Manifest should include:
 
 ## Viewer Verification
 
-The MVP should include a local viewer for verification.
+The MVP should include a local `demo.html` viewer for verification.
 
 Viewer expectations:
 
-- Load terrain from existing terrain output when available.
-- Load `output/taichung/tileset.json`.
+- Use Easymap CDN from `http://www.focusit.com.tw/easymap/easymap/easymap.js`.
+- Enable Easymap 3D and use the internal Cesium viewer to load terrain and 3D Tiles.
+- Load terrain from `/data/terrain20M/<county>`, starting with `/data/terrain20M/taichung`.
+- Follow the terrain usage documented at `https://3wa.tw/data/terrain20M/index.html`.
+- Also use `https://3wa.tw/demo/htm/map/3D/terrain_demo/` as a visual and terrain-loading reference.
+- Load `output/<county>/<profile>/tileset.json`.
 - Start camera near Taichung urban area.
 - Provide enough status text to show terrain and tileset load success or failure.
 - Use existing 3WA Cesium/Easymap conventions where practical.
