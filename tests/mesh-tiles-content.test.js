@@ -50,4 +50,17 @@ describe("mesh and tile content", () => {
     });
     expect(glbJson(glb).meshes[0].primitives).toHaveLength(1);
   });
+
+  it("writes double-sided materials for Cesium wall viewing angles", () => {
+    const glb = createGlb({
+      meshes: [buildExtrudedMesh({
+        id: 1,
+        rings: [[[0, 0], [10, 0], [10, 10], [0, 10]]],
+        heightMeters: 6.6,
+        materialIndex: 0
+      })],
+      materials: [{ name: "wall", baseColorFactor: [1, 1, 1, 1] }]
+    });
+    expect(glbJson(glb).materials[0].doubleSided).toBe(true);
+  });
 });

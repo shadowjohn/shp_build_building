@@ -63,6 +63,7 @@ export function createGlb({ meshes, materials }) {
     ],
     materials: materials.map((material) => ({
       name: material.name,
+      doubleSided: true,
       pbrMetallicRoughness: { baseColorFactor: material.baseColorFactor, metallicFactor: 0, roughnessFactor: 0.85 }
     })),
     meshes: [{
