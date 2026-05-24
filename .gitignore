@@ -1,2 +1,8 @@
 .superpowers/
-
+input/*
+!input/.gitkeep
+node_modules/
+output/
+cache/
+logs/
+*.tmp
